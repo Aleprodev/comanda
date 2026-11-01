@@ -1,6 +1,6 @@
 import { db, addMessage, getMenu } from './db.js'
 import { business, paymentMethods, paymentLabels, money } from './business.js'
-import { createPaymentLink } from './payments/mercadopago.js'
+import { createPaymentLink, watchPayment } from './payments/mercadopago.js'
 
 export class OrderError extends Error {}
 
@@ -95,6 +95,7 @@ export async function createOrder(conversationId, args) {
 async function sendPaymentLink(order) {
   try {
     const link = await createPaymentLink(order)
+    watchPayment(order)
     await addMessage(order.conversation_id, {
       role: 'bot',
       type: 'payment_link',

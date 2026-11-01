@@ -39,29 +39,45 @@ function OrderCard({ order }) {
   )
 }
 
-function PaymentCard({ meta }) {
+function PaymentCard({ meta, paid }) {
   return (
     <div className="w-64 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
       <p className="text-[13px] text-muted">Pedido #{meta.number}</p>
       <p className="mt-0.5 text-2xl font-semibold tracking-tight tabular-nums">{money(meta.total)}</p>
-      <a
-        href={meta.url}
-        className="mt-3 block rounded-full bg-[#009ee3] px-4 py-2.5 text-center text-[14px] font-semibold text-white transition hover:brightness-110 active:scale-[0.98]"
-      >
-        Pagar con Mercado Pago
-      </a>
-      <p className="mt-2 text-center text-[11px] text-muted">Pago seguro · se confirma solo</p>
+      {paid ? (
+        <div className="mt-3 flex items-center justify-center gap-2 rounded-full bg-ok/15 px-4 py-2.5 text-[14px] font-semibold text-[#1f8a3b]">
+          <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12.5l4.5 4.5L19 7.5" />
+          </svg>
+          Pago confirmado
+        </div>
+      ) : (
+        <>
+          <a
+            href={meta.url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 block rounded-full bg-[#009ee3] px-4 py-2.5 text-center text-[14px] font-semibold text-white transition hover:brightness-110 active:scale-[0.98]"
+          >
+            Pagar con Mercado Pago
+          </a>
+          <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-muted">
+            <span className="size-1.5 animate-pulse rounded-full bg-warn" />
+            Esperando el pago · se confirma solo
+          </p>
+        </>
+      )}
     </div>
   )
 }
 
-export default function Bubble({ message }) {
+export default function Bubble({ message, paidOrderIds }) {
   const mine = message.role === 'customer'
 
   if (message.type === 'payment_link' && message.meta?.url) {
     return (
       <div className="flex justify-start">
-        <PaymentCard meta={message.meta} />
+        <PaymentCard meta={message.meta} paid={paidOrderIds?.has(message.meta.order_id)} />
       </div>
     )
   }

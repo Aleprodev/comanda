@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { existsSync } from 'node:fs'
 import { db, addMessage, getConversation } from './db.js'
 import { business, paymentMethods } from './business.js'
-import { mpConfigured, syncPayment } from './payments/mercadopago.js'
+import { mpConfigured, syncPayment, resumeWatchers } from './payments/mercadopago.js'
 import { runAgent, AiNotConfigured } from './ai/agent.js'
 
 const app = express()
@@ -136,6 +136,7 @@ app.patch(
         role: 'bot',
         type: 'status',
         content: `¡Recibimos el pago de tu pedido #${order.number}! 💳`,
+        meta: { paid_order_id: order.id },
       })
     }
     res.json({ order })
@@ -178,4 +179,7 @@ if (existsSync(dist)) {
 }
 
 const port = Number(process.env.PORT) || 3000
-app.listen(port, () => console.log(`Comanda server en http://localhost:${port}`))
+app.listen(port, () => {
+  console.log(`Comanda server en http://localhost:${port}`)
+  resumeWatchers().catch((err) => console.error('resumeWatchers:', err.message))
+})

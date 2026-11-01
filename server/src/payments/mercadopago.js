@@ -43,6 +43,50 @@ export async function createPaymentLink(order) {
   return { id: pref.id, url: pref.init_point }
 }
 
+// El webhook no puede llegar a localhost ni a un servidor caído, así que además se consulta
+// activamente: cada pedido con link de pago se vigila hasta que se acredite o pasen 30 minutos.
+const WATCH_INTERVAL_MS = 4000
+const WATCH_MAX_MS = 30 * 60 * 1000
+const watching = new Set()
+
+export function watchPayment(order) {
+  if (!mpConfigured() || watching.has(order.id)) return
+  watching.add(order.id)
+  const deadline = new Date(order.created_at).getTime() + WATCH_MAX_MS
+
+  const tick = async () => {
+    let finished = false
+    try {
+      const res = await new Payment(config()).search({
+        options: { external_reference: order.id, criteria: 'desc', sort: 'date_created' },
+      })
+      const approved = res.results?.find((p) => p.status === 'approved')
+      if (approved) {
+        await syncPayment(approved.id)
+        finished = true
+      }
+    } catch (err) {
+      console.error('Vigilancia de pago MP:', err.message)
+    }
+    if (finished || Date.now() > deadline) watching.delete(order.id)
+    else setTimeout(tick, WATCH_INTERVAL_MS)
+  }
+  setTimeout(tick, WATCH_INTERVAL_MS)
+}
+
+// Al arrancar, retoma la vigilancia de los pedidos que quedaron esperando un pago
+export async function resumeWatchers() {
+  if (!mpConfigured()) return
+  const since = new Date(Date.now() - WATCH_MAX_MS).toISOString()
+  const { data } = await db
+    .from('orders')
+    .select('*')
+    .eq('payment_method', 'mercadopago')
+    .eq('payment_status', 'pending')
+    .gte('created_at', since)
+  data?.forEach(watchPayment)
+}
+
 async function markPaid(order, payment) {
   // El filtro hace la operación idempotente: webhook y verificación pueden llegar los dos
   const { data } = await db
@@ -60,6 +104,7 @@ async function markPaid(order, payment) {
       role: 'bot',
       type: 'status',
       content: `¡Recibimos el pago de tu pedido #${order.number}! 💳`,
+      meta: { paid_order_id: order.id },
     })
   }
 }

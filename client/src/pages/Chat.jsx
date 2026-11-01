@@ -38,6 +38,8 @@ export default function Chat() {
   const [error, setError] = useState('')
   const endRef = useRef(null)
 
+  const paidOrderIds = new Set(messages.map((m) => m.meta?.paid_order_id).filter(Boolean))
+
   const merge = (incoming) =>
     setMessages((prev) => {
       const map = new Map(prev.map((m) => [m.id, m]))
@@ -138,7 +140,7 @@ export default function Chat() {
 
       <div className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
         {messages.map((m) => (
-          <Bubble key={m.id} message={m} />
+          <Bubble key={m.id} message={m} paidOrderIds={paidOrderIds} />
         ))}
         {waiting && <Typing />}
         <div ref={endRef} />
