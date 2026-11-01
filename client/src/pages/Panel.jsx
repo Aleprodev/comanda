@@ -40,7 +40,7 @@ export default function Panel() {
     <div className="flex h-full flex-col">
       <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-black/5 bg-bg/80 px-5 py-3 backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <div className="grid size-9 place-items-center rounded-full bg-gradient-to-b from-[#ffd36e] to-[#ff9f0a] text-lg">🍕</div>
+          <div className="grid size-9 place-items-center rounded-full bg-linear-to-b from-[#ffd36e] to-warn text-lg">🍕</div>
           <div className="leading-tight">
             <h1 className="text-[15px] font-semibold tracking-tight">Todo Chévere</h1>
             <p className="text-xs text-muted">Panel del local</p>

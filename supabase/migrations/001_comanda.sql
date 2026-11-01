@@ -81,7 +81,7 @@ insert into public.products (id, name, category, price, description, options, em
   ('pz-muzza',      'Muzzarella',            'pizzas',    13500, 'Salsa de tomate, muzzarella y aceitunas.', '{}', '🍕', 1),
   ('pz-napo',       'Napolitana',            'pizzas',    15500, 'Muzzarella, rodajas de tomate, ajo y perejil.', '{}', '🍅', 2),
   ('pz-fugazzeta',  'Fugazzeta',             'pizzas',    15000, 'Rellena de muzzarella con cebolla dorada.', '{}', '🧅', 3),
-  ('pz-especial',   'Especial',              'pizzas',    16500, 'Muzzarella, jamón cocido y morrones asados.', '{}', '🫑', 4),
+  ('pz-especial',   'Especial',              'pizzas',    16500, 'Muzzarella, jamón cocido y morrones asados.', '{}', '⭐', 4),
   ('pz-calabresa',  'Calabresa',             'pizzas',    16500, 'Muzzarella y longaniza calabresa.', '{}', '🌶️', 5),
   ('pz-4quesos',    'Cuatro quesos',         'pizzas',    17500, 'Muzzarella, roquefort, provolone y parmesano.', '{}', '🧀', 6),
   ('pz-rucula',     'Rúcula y crudo',        'pizzas',    18500, 'Muzzarella, jamón crudo, rúcula y parmesano.', '{}', '🥬', 7),

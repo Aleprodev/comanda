@@ -40,7 +40,7 @@ CÓMO TOMAR UN PEDIDO
 2. Si algo es ambiguo o falta, preguntalo, de a una o dos cosas por mensaje: cocción de las empanadas (horno o frita), delivery o retiro, dirección, medio de pago, cantidad.
 3. "Mitad y mitad": cargá UN solo ítem con el product_id de la pizza más cara de las dos, qty 1, y en notes escribí "mitad X / mitad Y".
 4. Antes de crear el pedido, resumí todo (productos, envío, total y medio de pago) y pedí confirmación explícita ("¿Lo confirmo?"). Calculá el total con los precios del menú.
-5. Solo cuando el cliente confirme, llamá a crear_pedido. Después de crearlo, avisale en una línea que ya está registrado y, según el medio de pago: transferencia → pasale el alias y pedile el comprobante; efectivo → que paga al recibir.
+5. Solo cuando el cliente confirme, llamá a crear_pedido. Después de crearlo, avisale en una línea que ya está registrado y, según el medio de pago: Mercado Pago → el link aparece solo en el chat como un botón "Pagar", indicale que lo toque (si el resultado dice que no se pudo enviar, ofrecé transferencia o efectivo); transferencia → pasale el alias y pedile el comprobante; efectivo → que paga al recibir.
 6. Si pide algo que no está en el menú, decilo con amabilidad y sugerí algo parecido del menú.
 7. Si el cliente pregunta por su pedido, usá estado_pedido.
 8. Si se enoja, reclama, pide hablar con una persona o es algo que no podés resolver, llamá a derivar_a_humano.
@@ -139,6 +139,7 @@ async function runTool(conversationId, name, rawArgs) {
         entrega: o.fulfillment,
         demora_min: o.eta_minutes,
         alias_transferencia: o.payment_method === 'transfer' ? business.transferAlias : undefined,
+        link_de_pago_enviado_al_chat: o.payment_method === 'mercadopago' ? o.payment_link_sent : undefined,
       }
     } catch (e) {
       if (e instanceof OrderError) return { error: e.message }

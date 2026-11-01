@@ -3,7 +3,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { existsSync } from 'node:fs'
 import { db, addMessage, getConversation } from './db.js'
-import { business } from './business.js'
+import { business, paymentMethods } from './business.js'
+import { mpConfigured, syncPayment } from './payments/mercadopago.js'
 import { runAgent, AiNotConfigured } from './ai/agent.js'
 
 const app = express()
@@ -60,6 +61,38 @@ app.post(
       })
       res.json({ messages: [customer, fallback] })
     }
+  }),
+)
+
+// Datos públicos del local para la landing
+app.get('/api/business', (_req, res) => res.json({ ...business, paymentMethods: paymentMethods() }))
+
+// Mercado Pago avisa acá cuando un pago cambia. Se vuelve a consultar el pago a la API de MP
+// con nuestro token, así que una notificación falsa no puede marcar nada como pagado.
+app.post(
+  '/api/webhooks/mercadopago',
+  wrap(async (req, res) => {
+    const type = req.body?.type ?? req.query.type ?? req.query.topic
+    const id = req.body?.data?.id ?? req.query['data.id'] ?? (req.query.topic === 'payment' ? req.query.id : null)
+    if (mpConfigured() && type === 'payment' && id) {
+      try {
+        await syncPayment(id)
+      } catch (err) {
+        console.error('Webhook MP:', err.message) // se responde 200 igual: reintentar no arregla un id inexistente
+      }
+    }
+    res.sendStatus(200)
+  }),
+)
+
+// Respaldo del webhook: el chat lo llama al volver del checkout de Mercado Pago
+app.get(
+  '/api/payments/verify',
+  wrap(async (req, res) => {
+    if (!mpConfigured()) return res.status(503).json({ error: 'mp_not_configured' })
+    const paymentId = String(req.query.payment_id ?? '')
+    if (!/^\d+$/.test(paymentId)) return res.status(400).json({ error: 'invalid_payment_id' })
+    res.json((await syncPayment(paymentId)) ?? { status: 'unknown' })
   }),
 )
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { api } from '../lib/api.js'
 import Bubble from '../components/Bubble.jsx'
@@ -28,9 +29,11 @@ function Phone({ children }) {
 }
 
 export default function Chat() {
+  const [params, setParams] = useSearchParams()
   const [conversationId, setConversationId] = useState(null)
   const [messages, setMessages] = useState([])
-  const [text, setText] = useState('')
+  // "Pedir" en la landing llega con el mensaje armado: queda en el input para que lo envíe
+  const [text, setText] = useState(() => params.get('q') ?? '')
   const [waiting, setWaiting] = useState(false)
   const [error, setError] = useState('')
   const endRef = useRef(null)
@@ -60,6 +63,15 @@ export default function Chat() {
     return () => {
       cancelled = true
     }
+  }, [])
+
+  // Al volver del checkout de Mercado Pago, confirma el pago sin esperar al webhook
+  useEffect(() => {
+    const paymentId = params.get('payment_id')
+    if (paymentId) {
+      api.verifyPayment(paymentId).catch(() => {})
+    }
+    if (paymentId || params.has('pago') || params.has('q')) setParams({}, { replace: true })
   }, [])
 
   // Historial + mensajes en vivo
@@ -112,7 +124,10 @@ export default function Chat() {
   return (
     <Phone>
       <header className="flex items-center gap-3 border-b border-black/5 bg-white/80 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xl sm:pt-9">
-        <div className="grid size-10 place-items-center rounded-full bg-gradient-to-b from-[#ffd36e] to-[#ff9f0a] text-xl">🍕</div>
+        <Link to="/" aria-label="Volver al menú" className="-ml-1 text-2xl leading-none text-accent">
+          ‹
+        </Link>
+        <div className="grid size-10 place-items-center rounded-full bg-linear-to-b from-[#ffd36e] to-warn text-xl">🍕</div>
         <div className="leading-tight">
           <p className="text-[15px] font-semibold tracking-tight">Todo Chévere</p>
           <p className="flex items-center gap-1.5 text-xs text-muted">

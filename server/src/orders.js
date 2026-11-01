@@ -1,5 +1,6 @@
 import { db, addMessage, getMenu } from './db.js'
 import { business, paymentMethods, paymentLabels, money } from './business.js'
+import { createPaymentLink } from './payments/mercadopago.js'
 
 export class OrderError extends Error {}
 
@@ -83,7 +84,32 @@ export async function createOrder(conversationId, args) {
     meta: { order_id: order.id, order },
   })
 
+  if (method === 'mercadopago') {
+    order.payment_link_sent = await sendPaymentLink(order)
+  }
+
   return order
+}
+
+// Un fallo de Mercado Pago no debe perder el pedido: se avisa y se ofrecen otros medios
+async function sendPaymentLink(order) {
+  try {
+    const link = await createPaymentLink(order)
+    await addMessage(order.conversation_id, {
+      role: 'bot',
+      type: 'payment_link',
+      content: `Link de pago de Mercado Pago por ${money(order.total)}`,
+      meta: { url: link.url, total: order.total, order_id: order.id, number: order.number },
+    })
+    return true
+  } catch (err) {
+    console.error('Mercado Pago:', err.message)
+    await addMessage(order.conversation_id, {
+      role: 'bot',
+      content: `No pude generar el link de pago de Mercado Pago. Podés pagar por transferencia al alias ${business.transferAlias} o en efectivo al recibir.`,
+    })
+    return false
+  }
 }
 
 export function orderText(o) {

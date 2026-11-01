@@ -12,6 +12,8 @@ export const api = {
   createConversation: () => request('/api/conversations', { method: 'POST' }),
   sendText: (conversationId, text) =>
     request(`/api/chat/${conversationId}`, { method: 'POST', body: JSON.stringify({ text }) }),
+  getBusiness: () => request('/api/business'),
+  verifyPayment: (paymentId) => request(`/api/payments/verify?payment_id=${encodeURIComponent(paymentId)}`),
   updateOrder: (orderId, patch) =>
     request(`/api/orders/${orderId}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   staffReply: (conversationId, text) =>
