@@ -12,6 +12,7 @@ APP_NAME="comanda"
 [ "$(id -u)" -eq 0 ] || { echo "Ejecutalo como root (sudo bash setup.sh)"; exit 1; }
 [ -f "$APP_DIR/server/.env" ] || { echo "Falta $APP_DIR/server/.env. Crealo primero (modelo: server/.env.example)."; exit 1; }
 
+sed -i 's/\r$//' "$APP_DIR/server/.env" # por si el .env viene de Windows (CRLF)
 export DEBIAN_FRONTEND=noninteractive
 echo ">> Paquetes base"
 apt-get update -y
