@@ -39,7 +39,7 @@ CÓMO TOMAR UN PEDIDO
 1. Entendé lo que pide el cliente aunque lo diga desordenado ("una docena, 6 de carne y el resto de pollo" = 6 carne + 6 pollo). Una docena = 12.
 2. Si algo es ambiguo o falta, preguntalo, de a una o dos cosas por mensaje: cocción de las empanadas (horno o frita), delivery o retiro, dirección, medio de pago, cantidad. Antes de preguntar, revisá TODO lo que el cliente ya dijo en la conversación y no repitas una pregunta ya respondida. Si dio una dirección o dijo "mandar", "enviar" o "llevar", es delivery; si dijo "retiro" o "paso a buscar", es retiro. Cuando ya tenés todos los datos, no pidas nada más: armá el resumen y pedí confirmación.
 3. "Mitad y mitad": cargá UN solo ítem con el product_id de la pizza más cara de las dos, qty 1, y en notes escribí "mitad X / mitad Y" con los NOMBRES de las pizzas (por ejemplo "mitad Muzzarella / mitad Napolitana"), nunca con ids. Las notas siempre son texto legible para la cocina.
-4. Antes de crear el pedido, llamá SIEMPRE a calcular_pedido y resumí todo (productos, envío, total y medio de pago) con los importes que devuelve, sin hacer cuentas vos: el total del resumen tiene que ser exactamente el "total" de esa herramienta. El resumen tiene una línea por producto, el costo de envío si hay y una línea final "Total: $X" con el importe en pesos de la herramienta; nunca se omite el total. Pedí confirmación explícita ("¿Lo confirmo?").
+4. Antes de crear el pedido, llamá SIEMPRE a calcular_pedido y resumí todo (productos, envío, total y medio de pago) con los importes que devuelve, sin hacer cuentas vos: el total del resumen tiene que ser exactamente el "total" de esa herramienta. El resumen tiene una línea por producto, el costo de envío si hay y una línea final "Total: $X" copiando el importe de "total_texto" tal cual (con el punto de miles, por ejemplo $13.500); nunca se omite el total. Pedí confirmación explícita ("¿Lo confirmo?").
 5. Solo cuando el cliente confirme, llamá a crear_pedido. Después de crearlo, avisale en una línea que ya está registrado y, según el medio de pago: Mercado Pago → el link aparece solo en el chat como un botón "Pagar", indicale que lo toque (si el resultado dice que no se pudo enviar, ofrecé transferencia o efectivo); transferencia → pasale el alias y pedile el comprobante; efectivo → que paga al recibir.
 6. Si pide algo que no está en el menú, decilo con amabilidad y sugerí algo parecido del menú.
 7. Si el cliente pregunta por su pedido, usá estado_pedido.
@@ -191,6 +191,32 @@ const tools = [
   },
 ]
 
+// Lo que el cliente ya dejó claro, detectado en el servidor. El modelo a veces repregunta lo que
+// ya se dijo; este bloque se lo marca como cerrado en cada turno.
+function settledFacts(history) {
+  const said = history.filter((m) => m.role === 'customer').map((m) => m.content).join('\n')
+  const facts = []
+
+  const wantsDelivery =
+    /\b(mand(ar|ame|en|alo|alas?)|envi(ar|ame|en)|trae(r|me|n)|delivery|a domicilio)\b/i.test(said) ||
+    /\b(?:a|en|para)\s+(?:la\s+|el\s+)?[A-ZÁÉÍÓÚÑ][\p{L}.]*(?:\s+[\p{L}.]+){0,3}\s+\d{1,5}\b/u.test(said)
+  const wantsPickup = /\b(retir(o|ar|aría|amos)|paso a buscar|lo busco|los busco|voy a buscar)\b/i.test(said)
+  if (wantsDelivery && !wantsPickup) {
+    facts.push('Ya pidió DELIVERY: no le preguntes si es delivery o retiro. Si todavía no dio la dirección, pedísela.')
+  } else if (wantsPickup && !wantsDelivery) {
+    facts.push('Ya dijo que RETIRA en el local: no le preguntes por delivery ni por dirección.')
+  }
+
+  const methods = [
+    ['Mercado Pago', /\bmercado\s?pago\b|\bmp\b/i],
+    ['Transferencia', /\btransferencia|transfiero\b/i],
+    ['Efectivo', /\befectivo\b/i],
+  ].filter(([, re]) => re.test(said))
+  if (methods.length === 1) facts.push(`Ya eligió pagar con ${methods[0][0]}: no se lo vuelvas a preguntar.`)
+
+  return facts.length ? `\n\nLO QUE EL CLIENTE YA DEJÓ CLARO (no lo repreguntes)\n${facts.map((f) => `- ${f}`).join('\n')}` : ''
+}
+
 function toOpenAiMessages(history) {
   const out = []
   for (const m of history) {
@@ -217,10 +243,11 @@ async function runTool(conversationId, name, rawArgs) {
       const subtotal = items.reduce((s, it) => s + it.qty * it.unit_price, 0)
       const envio = args.fulfillment === 'delivery' ? business.deliveryFee : 0
       return {
-        lineas: items.map((it) => ({ producto: it.name, cantidad: it.qty, precio_unitario: it.unit_price, subtotal: it.qty * it.unit_price })),
-        subtotal,
-        envio,
+        // Los importes van también como texto ya formateado ($13.500): el bot los copia tal cual
+        lineas: items.map((it) => ({ producto: it.name, cantidad: it.qty, subtotal_texto: money(it.qty * it.unit_price) })),
+        envio_texto: envio ? money(envio) : null,
         total: subtotal + envio,
+        total_texto: money(subtotal + envio),
       }
     } catch (e) {
       if (e instanceof OrderError) return { error: e.message }
@@ -268,7 +295,7 @@ async function runTool(conversationId, name, rawArgs) {
 export async function runAgent(conversationId) {
   const ai = openai()
   const [menu, history] = await Promise.all([getMenu(), getHistory(conversationId)])
-  const messages = [{ role: 'system', content: systemPrompt(menu) }, ...toOpenAiMessages(history)]
+  const messages = [{ role: 'system', content: systemPrompt(menu) + settledFacts(history) }, ...toOpenAiMessages(history)]
   const model = process.env.OPENAI_MODEL || 'gpt-4o-mini'
   const produced = []
 
