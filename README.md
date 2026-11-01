@@ -68,7 +68,7 @@ El proyecto usa credenciales de **prueba** de Mercado Pago (modo sandbox): **no 
 | **Código de verificación** | `512294` |
 
 - El código de verificación es el que Mercado Pago pide al ingresar con un usuario de prueba (son los últimos 6 dígitos del ID).
-- Para pagar con tarjeta hay que usar una **tarjeta de prueba** de la [documentación de Mercado Pago](https://www.mercadopago.com.ar/developers/es/docs/checkout-pro/additional-content/your-integrations/test/cards). Para que el pago salga aprobado, el nombre del titular debe ser `APRO`.
+- Para pagar con tarjeta hay que usar una **tarjeta de prueba** de la [documentación de Mercado Pago](https://www.mercadopago.com.ar/developers/es/docs/checkout-pro/additional-content/your-integrations/test/cards). Para que el pago salga aprobado, el nombre del titular debe ser `APRO`, y el **código de seguridad** de las tarjetas de prueba es `123`.
 - Cuando el pago se acredita, el pedido pasa solo a **Pagado** en el panel y el chat muestra "Pago confirmado", sin que el cliente avise.
 
 > Es una cuenta de prueba creada solo para este proyecto. No usar estas credenciales para nada más.
