@@ -6,6 +6,10 @@ Proyecto para el hackatón *"Del problema al servidor"* · DonWeb Day Rosario 20
 
 > **La consigna:** un negocio local pierde ventas porque atiende consultas y pedidos a mano, por WhatsApp o por teléfono: mensajes que se pierden, pedidos mal anotados, clientes que esperan.
 
+**🌐 Sitio en vivo:** https://201-32-132-192.sslip.io  
+**🔐 Panel del dueño:** https://201-32-132-192.sslip.io/panel (usuario `admin`, contraseña `admin`)  
+**📦 Repositorio:** https://github.com/Aleprodev/comanda
+
 ---
 
 ## La idea
