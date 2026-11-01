@@ -1,7 +1,11 @@
+import { Navigate, Route, Routes } from 'react-router-dom'
+import Chat from './pages/Chat.jsx'
+
 export default function App() {
   return (
-    <main className="grid h-full place-items-center">
-      <h1 className="text-4xl font-semibold tracking-tight">Todo Chévere</h1>
-    </main>
+    <Routes>
+      <Route path="/pedir" element={<Chat />} />
+      <Route path="*" element={<Navigate to="/pedir" replace />} />
+    </Routes>
   )
 }
