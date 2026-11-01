@@ -24,6 +24,15 @@ if ! command -v node >/dev/null || [ "$(node -v | cut -d. -f1 | tr -d v)" -lt 20
 fi
 command -v pm2 >/dev/null || npm install -g pm2
 
+# La imagen "Node.js" de DonWeb trae Nginx (puertos 80/443) y una app de ejemplo en el 3000:
+# se apagan para que Caddy y Comanda usen esos puertos.
+if systemctl list-unit-files 2>/dev/null | grep -q '^nginx.service'; then
+  echo ">> Apagando Nginx de la imagen base"
+  systemctl stop nginx || true
+  systemctl disable nginx || true
+fi
+command -v pm2 >/dev/null && pm2 delete all >/dev/null 2>&1 || true
+
 if ! command -v caddy >/dev/null; then
   echo ">> Caddy"
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
