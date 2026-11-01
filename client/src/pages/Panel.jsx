@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { usePanelData } from '../hooks/usePanelData.js'
 import OrderCard from '../components/panel/OrderCard.jsx'
 import Inbox from '../components/panel/Inbox.jsx'
+import Analytics from '../components/panel/Analytics.jsx'
 import { money } from '../lib/api.js'
 
 const columns = [
@@ -25,6 +26,7 @@ export default function Panel() {
   const { orders, conversations, ready } = usePanelData()
   const [now, setNow] = useState(Date.now())
   const [inbox, setInbox] = useState(false)
+  const [view, setView] = useState('orders')
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 30000)
@@ -64,6 +66,29 @@ export default function Panel() {
         </div>
       </header>
 
+      <div className="px-5 pt-4">
+        <div role="tablist" className="inline-flex rounded-full bg-black/[0.05] p-0.5">
+          {[
+            ['orders', 'Pedidos'],
+            ['analytics', 'Análisis'],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={view === key}
+              onClick={() => setView(key)}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${view === key ? 'bg-white text-ink shadow-sm' : 'text-muted hover:text-ink'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {view === 'analytics' ? (
+        <Analytics orders={orders} conversations={conversations} now={now} />
+      ) : (
+        <>
       <div className="grid grid-cols-3 gap-3 px-5 pt-5">
         <Metric label="Pedidos de hoy" value={today.length} />
         <Metric label="Facturado hoy" value={money(today.reduce((s, o) => s + o.total, 0))} />
@@ -73,7 +98,10 @@ export default function Panel() {
       <main className="flex-1 overflow-x-auto px-5 py-5">
         <div className="grid min-w-[1000px] grid-cols-4 gap-4 lg:min-w-0">
           {columns.map((col) => {
-            const list = orders.filter((o) => o.status === col.key).sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
+            // "Entregados" muestra solo los de hoy: el historial vive en Análisis
+            const list = orders
+              .filter((o) => o.status === col.key && (col.key !== 'delivered' || new Date(o.updated_at).getTime() >= startOfDay))
+              .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
             return (
               <section key={col.key} className="rounded-3xl bg-black/[0.03] p-3">
                 <h2 className="flex items-center gap-2 px-2 pb-3 pt-1 text-[13px] font-semibold tracking-tight">
@@ -92,6 +120,8 @@ export default function Panel() {
           })}
         </div>
       </main>
+        </>
+      )}
 
       {inbox && <Inbox conversations={conversations} onClose={() => setInbox(false)} />}
     </div>

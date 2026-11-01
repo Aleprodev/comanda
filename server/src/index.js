@@ -116,6 +116,7 @@ app.patch(
     if (status !== undefined) {
       if (!ORDER_STATUSES.includes(status)) return res.status(400).json({ error: 'invalid_status' })
       patch.status = status
+      if (status !== 'new') patch[`${status}_at`] = patch.updated_at
     }
     if (payment_status !== undefined) {
       if (!['pending', 'paid'].includes(payment_status)) return res.status(400).json({ error: 'invalid_payment_status' })
