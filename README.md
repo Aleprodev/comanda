@@ -135,7 +135,17 @@ npm run seed:demo -w server -- --clear  # los borra (no toca pedidos reales)
 
 ## Despliegue
 
-`deploy/setup.sh` instala Node, PM2 y Caddy en un servidor Ubuntu/Debian, y publica la app con **HTTPS automático** (`<ip>.sslip.io`). El HTTPS es necesario para usar el **micrófono y la cámara** desde el celular.
+**En producción:** https://201-32-132-192.sslip.io (Cloud Server de DonWeb, Ubuntu 24.04, 2 vCPU / 4 GB).
+
+| | |
+|---|---|
+| **Sitio** | https://201-32-132-192.sslip.io |
+| **Chat para pedir** | https://201-32-132-192.sslip.io/pedir |
+| **Panel del dueño** | https://201-32-132-192.sslip.io/panel (`admin` / `admin`) |
+
+> Si el navegador muestra "La conexión no es privada", es que el certificado HTTPS todavía no se emitió (Nginx de la imagen base ocupa el puerto 80). Se entra con *Avanzado → Continuar*. Con el certificado válido, el micrófono y la cámara funcionan también en el celular.
+
+`deploy/setup.sh` instala Node, PM2 y Caddy en un servidor Ubuntu/Debian, y publica la app con **HTTPS automático** (`<ip>.sslip.io`). El HTTPS es necesario para usar el **micrófono y la cámara** desde el celular. `deploy/deploy-donweb.cmd` sube las claves y ejecuta todo en un solo paso desde Windows.
 
 ## Límites conocidos
 
