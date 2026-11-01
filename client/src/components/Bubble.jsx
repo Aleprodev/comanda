@@ -72,7 +72,7 @@ function PaymentCard({ meta, paid }) {
   )
 }
 
-export default function Bubble({ message, paidOrderIds }) {
+export default function Bubble({ message, paidOrderIds, showOptions, onPick }) {
   const mine = message.role === 'customer'
 
   if (message.type === 'audio' && message.meta?.url) {
@@ -117,16 +117,36 @@ export default function Bubble({ message, paidOrderIds }) {
     )
   }
 
+  const options = !mine && showOptions ? message.meta?.options : null
+
   return (
-    <div className={`flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`max-w-[78%] whitespace-pre-wrap rounded-[20px] px-3.5 py-2 text-[15px] leading-snug ${
-          mine ? 'rounded-br-md bg-accent text-white' : 'rounded-bl-md bg-white text-ink shadow-sm ring-1 ring-black/5'
-        }`}
-      >
-        {message.content}
+    <div>
+      <div className={`flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}>
+        <div
+          className={`max-w-[78%] whitespace-pre-wrap rounded-[20px] px-3.5 py-2 text-[15px] leading-snug ${
+            mine ? 'rounded-br-md bg-accent text-white' : 'rounded-bl-md bg-white text-ink shadow-sm ring-1 ring-black/5'
+          }`}
+        >
+          {message.content}
+        </div>
+        {!mine && message.type === 'text' && message.content && <SpeakButton message={message} />}
       </div>
-      {!mine && message.type === 'text' && message.content && <SpeakButton message={message} />}
+
+      {/* Respuestas rápidas: solo en el último mensaje, mientras esperan respuesta */}
+      {options?.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {options.map((o) => (
+            <button
+              key={o}
+              type="button"
+              onClick={() => onPick?.(o)}
+              className="rounded-full bg-white px-4 py-2 text-[14px] font-medium text-accent shadow-sm ring-1 ring-accent/30 transition hover:bg-accent hover:text-white active:scale-95"
+            >
+              {o}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

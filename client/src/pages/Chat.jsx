@@ -149,7 +149,13 @@ export default function Chat() {
 
       <div className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
         {messages.map((m) => (
-          <Bubble key={m.id} message={m} paidOrderIds={paidOrderIds} />
+          <Bubble
+            key={m.id}
+            message={m}
+            paidOrderIds={paidOrderIds}
+            showOptions={m.id === messages[messages.length - 1].id && !waiting}
+            onPick={(option) => deliver(() => api.sendText(conversationId, option))}
+          />
         ))}
         {waiting && <Typing />}
         <div ref={endRef} />

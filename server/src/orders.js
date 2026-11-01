@@ -5,15 +5,16 @@ import { createPaymentLink, watchPayment } from './payments/mercadopago.js'
 export class OrderError extends Error {}
 
 // Valida contra el menú real y calcula los precios: el modelo nunca decide un importe.
-export async function createOrder(conversationId, args) {
-  const menu = await getMenu()
+// Valida cada producto contra el menú y fija los precios. Lo usan tanto el cálculo previo
+// (para mostrarle el total al cliente) como la creación del pedido.
+export function priceItems(menu, rawItems) {
   const byId = new Map(menu.map((p) => [p.id, p]))
 
-  if (!Array.isArray(args.items) || args.items.length === 0) {
+  if (!Array.isArray(rawItems) || rawItems.length === 0) {
     throw new OrderError('El pedido no tiene productos.')
   }
 
-  const items = args.items.map((it) => {
+  return rawItems.map((it) => {
     const product = byId.get(it.product_id)
     if (!product) throw new OrderError(`El producto "${it.product_id}" no existe en el menú. Usá solo ids del menú.`)
     const qty = Number(it.qty)
@@ -38,6 +39,11 @@ export async function createOrder(conversationId, args) {
       notes: it.notes || null,
     }
   })
+}
+
+export async function createOrder(conversationId, args) {
+  const menu = await getMenu()
+  const items = priceItems(menu, args.items)
 
   const fulfillment = args.fulfillment
   if (!['delivery', 'pickup'].includes(fulfillment)) throw new OrderError('Falta definir si es delivery o retiro.')

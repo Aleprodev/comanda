@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 import { db, addMessage, getMenu, getHistory, lastOrder } from '../db.js'
 import { business, paymentMethods, paymentLabels, money } from '../business.js'
-import { createOrder, OrderError } from '../orders.js'
+import { createOrder, priceItems, OrderError } from '../orders.js'
 
 export class AiNotConfigured extends Error {}
 
@@ -39,12 +39,64 @@ CÓMO TOMAR UN PEDIDO
 1. Entendé lo que pide el cliente aunque lo diga desordenado ("una docena, 6 de carne y el resto de pollo" = 6 carne + 6 pollo). Una docena = 12.
 2. Si algo es ambiguo o falta, preguntalo, de a una o dos cosas por mensaje: cocción de las empanadas (horno o frita), delivery o retiro, dirección, medio de pago, cantidad. Antes de preguntar, revisá TODO lo que el cliente ya dijo en la conversación y no repitas una pregunta ya respondida. Si dio una dirección o dijo "mandar", "enviar" o "llevar", es delivery; si dijo "retiro" o "paso a buscar", es retiro. Cuando ya tenés todos los datos, no pidas nada más: armá el resumen y pedí confirmación.
 3. "Mitad y mitad": cargá UN solo ítem con el product_id de la pizza más cara de las dos, qty 1, y en notes escribí "mitad X / mitad Y" con los NOMBRES de las pizzas (por ejemplo "mitad Muzzarella / mitad Napolitana"), nunca con ids. Las notas siempre son texto legible para la cocina.
-4. Antes de crear el pedido, resumí todo (productos, envío, total y medio de pago) y pedí confirmación explícita ("¿Lo confirmo?"). Calculá el total con los precios del menú.
+4. Antes de crear el pedido, llamá SIEMPRE a calcular_pedido y resumí todo (productos, envío, total y medio de pago) con los importes que devuelve, sin hacer cuentas vos: el total del resumen tiene que ser exactamente el "total" de esa herramienta. El resumen tiene una línea por producto, el costo de envío si hay y una línea final "Total: $X" con el importe en pesos de la herramienta; nunca se omite el total. Pedí confirmación explícita ("¿Lo confirmo?").
 5. Solo cuando el cliente confirme, llamá a crear_pedido. Después de crearlo, avisale en una línea que ya está registrado y, según el medio de pago: Mercado Pago → el link aparece solo en el chat como un botón "Pagar", indicale que lo toque (si el resultado dice que no se pudo enviar, ofrecé transferencia o efectivo); transferencia → pasale el alias y pedile el comprobante; efectivo → que paga al recibir.
 6. Si pide algo que no está en el menú, decilo con amabilidad y sugerí algo parecido del menú.
 7. Si el cliente pregunta por su pedido, usá estado_pedido.
 8. Si se enoja, reclama, pide hablar con una persona o es algo que no podés resolver, llamá a derivar_a_humano.
-9. Si te escriben algo que no tiene que ver con el negocio, redirigí amablemente al pedido.`
+9. Si te escriben algo que no tiene que ver con el negocio, redirigí amablemente al pedido.
+
+BOTONES DE RESPUESTA RÁPIDA
+Tu respuesta final es UN solo objeto con "mensaje" (el texto) y "opciones" (los botones que ve el cliente debajo del mensaje). Un mensaje por turno, con una sola pregunta.
+- Cuando tu pregunta tiene pocas respuestas posibles, ofrecelas como opciones: cocción de las empanadas (Al horno / Fritas), delivery o retiro (Delivery / Retiro en el local), medio de pago (solo los disponibles), una confirmación (Sí, confirmalo / Quiero cambiar algo), o elegir entre un par de productos.
+- Máximo 4 opciones, textos cortos. Cada opción tiene que poder enviarse tal cual como la respuesta del cliente (por ejemplo "Al horno", "Delivery", "Sí, confirmalo").
+- Si la pregunta es abierta (la dirección, el nombre, qué quiere pedir) o no preguntás nada, "opciones" va vacío.
+- Nunca repitas las opciones dentro del texto del mensaje como lista: el texto pregunta y los botones responden.`
+}
+
+const replySchema = {
+  name: 'respuesta',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['mensaje', 'opciones'],
+    properties: {
+      mensaje: { type: 'string' },
+      opciones: { type: 'array', items: { type: 'string' } },
+    },
+  },
+}
+
+// Primer objeto JSON completo de un texto (a veces el modelo pega más de uno)
+function firstJsonObject(s) {
+  const start = s.indexOf('{')
+  if (start < 0) return null
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let i = start; i < s.length; i++) {
+    const c = s[i]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (c === '\\') escaped = true
+      else if (c === '"') inString = false
+    } else if (c === '"') inString = true
+    else if (c === '{') depth++
+    else if (c === '}' && --depth === 0) return s.slice(start, i + 1)
+  }
+  return null
+}
+
+// El modelo responde en JSON. Se usa solo la primera respuesta: una pregunta por mensaje.
+function parseReply(content) {
+  const raw = String(content ?? '')
+  try {
+    const { mensaje, opciones } = JSON.parse(firstJsonObject(raw))
+    return { text: String(mensaje ?? '').trim(), options: (opciones ?? []).map((o) => String(o).trim()).filter(Boolean).slice(0, 4) }
+  } catch {
+    return { text: raw.trim(), options: [] }
+  }
 }
 
 const tools = [
@@ -79,6 +131,37 @@ const tools = [
           payment_method: { type: 'string', enum: ['mercadopago', 'transfer', 'cash'] },
           customer_name: { type: ['string', 'null'] },
           notes: { type: ['string', 'null'], description: 'Aclaraciones generales del pedido' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'calcular_pedido',
+      description:
+        'Calcula el total EXACTO del pedido con los precios del menú. Llamala siempre antes de mostrarle el resumen al cliente: el total que le digas tiene que ser el que devuelve esta herramienta.',
+      strict: true,
+      parameters: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['items', 'fulfillment'],
+        properties: {
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['product_id', 'qty', 'coccion', 'notes'],
+              properties: {
+                product_id: { type: 'string' },
+                qty: { type: 'integer' },
+                coccion: { type: ['string', 'null'], enum: ['horno', 'frita', null] },
+                notes: { type: ['string', 'null'] },
+              },
+            },
+          },
+          fulfillment: { type: 'string', enum: ['delivery', 'pickup'] },
         },
       },
     },
@@ -128,6 +211,23 @@ async function runTool(conversationId, name, rawArgs) {
     return { error: 'Argumentos inválidos.' }
   }
 
+  if (name === 'calcular_pedido') {
+    try {
+      const items = priceItems(await getMenu(), args.items)
+      const subtotal = items.reduce((s, it) => s + it.qty * it.unit_price, 0)
+      const envio = args.fulfillment === 'delivery' ? business.deliveryFee : 0
+      return {
+        lineas: items.map((it) => ({ producto: it.name, cantidad: it.qty, precio_unitario: it.unit_price, subtotal: it.qty * it.unit_price })),
+        subtotal,
+        envio,
+        total: subtotal + envio,
+      }
+    } catch (e) {
+      if (e instanceof OrderError) return { error: e.message }
+      throw e
+    }
+  }
+
   if (name === 'crear_pedido') {
     try {
       const o = await createOrder(conversationId, args)
@@ -173,13 +273,20 @@ export async function runAgent(conversationId) {
   const produced = []
 
   for (let i = 0; i < 6; i++) {
-    const res = await ai.chat.completions.create({ model, messages, tools, temperature: 0.4 })
+    const res = await ai.chat.completions.create({
+      model,
+      messages,
+      tools,
+      temperature: 0.4,
+      response_format: { type: 'json_schema', json_schema: replySchema },
+    })
     const msg = res.choices[0].message
     messages.push(msg)
 
     if (!msg.tool_calls?.length) {
-      if (msg.content?.trim()) {
-        produced.push(await addMessage(conversationId, { role: 'bot', content: msg.content.trim() }))
+      const reply = parseReply(msg.content)
+      if (reply.text) {
+        produced.push(await addMessage(conversationId, { role: 'bot', content: reply.text, meta: { options: reply.options } }))
       }
       return produced
     }
