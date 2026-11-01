@@ -56,6 +56,23 @@ Las funciones de voz y los botones no son decoración: están para que **más pe
 
 > Son credenciales **de demostración**. Se cambian con las variables `ADMIN_USER` y `ADMIN_PASSWORD` del servidor (ver más abajo). El login lo valida el servidor y las acciones del panel (mover pedidos, marcar pagos, responder clientes) exigen sesión.
 
+## Probar el pago con Mercado Pago
+
+El proyecto usa credenciales de **prueba** de Mercado Pago (modo sandbox): **no se mueve dinero real**. Para completar un pago en la demo hay que entrar al checkout con este **usuario comprador de prueba** (no con una cuenta personal):
+
+| | |
+|---|---|
+| **Usuario** | `TESTUSER2747740741411149242` |
+| **Contraseña** | `X7b1xIODV5` |
+| **ID de usuario** | `3809512294` |
+| **Código de verificación** | `512294` |
+
+- El código de verificación es el que Mercado Pago pide al ingresar con un usuario de prueba (son los últimos 6 dígitos del ID).
+- Para pagar con tarjeta hay que usar una **tarjeta de prueba** de la [documentación de Mercado Pago](https://www.mercadopago.com.ar/developers/es/docs/checkout-pro/additional-content/your-integrations/test/cards). Para que el pago salga aprobado, el nombre del titular debe ser `APRO`.
+- Cuando el pago se acredita, el pedido pasa solo a **Pagado** en el panel y el chat muestra "Pago confirmado", sin que el cliente avise.
+
+> Es una cuenta de prueba creada solo para este proyecto. No usar estas credenciales para nada más.
+
 ## Cómo está hecho
 
 **Stack:** React 19 + Vite + Tailwind · Node.js + Express · Supabase (Postgres + Realtime + Storage) · OpenAI · Mercado Pago · GitHub.
