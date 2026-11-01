@@ -6,7 +6,7 @@ import { createOrder, OrderError } from '../orders.js'
 export class AiNotConfigured extends Error {}
 
 let client
-function openai() {
+export function openai() {
   if (!process.env.OPENAI_API_KEY) throw new AiNotConfigured('Falta OPENAI_API_KEY')
   client ??= new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   return client

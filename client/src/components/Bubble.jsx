@@ -74,6 +74,32 @@ function PaymentCard({ meta, paid }) {
 export default function Bubble({ message, paidOrderIds }) {
   const mine = message.role === 'customer'
 
+  if (message.type === 'audio' && message.meta?.url) {
+    return (
+      <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+        <div className={`max-w-[82%] rounded-[20px] p-2 ${mine ? 'rounded-br-md bg-accent text-white' : 'rounded-bl-md bg-white shadow-sm ring-1 ring-black/5'}`}>
+          <audio controls preload="metadata" src={message.meta.url} className="h-9 w-56 max-w-full" />
+          {message.meta.transcript && (
+            <p className={`px-2 pb-1 pt-1.5 text-[13px] leading-snug ${mine ? 'text-white/90' : 'text-muted'}`}>“{message.meta.transcript}”</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (message.type === 'image' && message.meta?.url) {
+    const kind = message.meta.kind
+    const caption = kind === 'comprobante' ? message.content : kind === 'lista_pedido' ? `Leí: ${message.meta.caption ?? ''}` : ''
+    return (
+      <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+        <div className={`max-w-[78%] overflow-hidden rounded-[20px] p-1 ${mine ? 'rounded-br-md bg-accent text-white' : 'rounded-bl-md bg-white shadow-sm ring-1 ring-black/5'}`}>
+          <img src={message.meta.url} alt="Foto enviada" loading="lazy" className="max-h-64 w-full rounded-[16px] object-cover" />
+          {caption && <p className="px-2.5 pb-1.5 pt-1.5 text-[13px] leading-snug">{caption}</p>}
+        </div>
+      </div>
+    )
+  }
+
   if (message.type === 'payment_link' && message.meta?.url) {
     return (
       <div className="flex justify-start">

@@ -74,7 +74,13 @@ function Thread({ conversation }) {
                 }`}
               >
                 {m.role === 'bot' && <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide opacity-50">Asistente</span>}
-                {m.content}
+                {m.type === 'image' && m.meta?.url && (
+                  <a href={m.meta.url} target="_blank" rel="noreferrer">
+                    <img src={m.meta.url} alt="Foto del cliente" loading="lazy" className="mb-1 max-h-48 rounded-xl object-cover" />
+                  </a>
+                )}
+                {m.type === 'audio' && m.meta?.url && <audio controls preload="metadata" src={m.meta.url} className="mb-1 h-8 w-52 max-w-full" />}
+                {m.type === 'audio' ? `🎙 “${m.content || 'sin texto'}”` : m.content}
               </div>
             </div>
           )

@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs'
 import { db, addMessage, getConversation } from './db.js'
 import { business, paymentMethods } from './business.js'
 import { mpConfigured, syncPayment, resumeWatchers } from './payments/mercadopago.js'
+import { registerMediaRoutes } from './media.js'
 import { runAgent, AiNotConfigured } from './ai/agent.js'
 
 const app = express()
@@ -63,6 +64,8 @@ app.post(
     }
   }),
 )
+
+registerMediaRoutes(app, wrap)
 
 // Datos públicos del local para la landing
 app.get('/api/business', (_req, res) => res.json({ ...business, paymentMethods: paymentMethods() }))

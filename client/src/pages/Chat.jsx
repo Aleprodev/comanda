@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { api } from '../lib/api.js'
 import Bubble from '../components/Bubble.jsx'
+import Composer from '../components/Composer.jsx'
 
 const STORAGE_KEY = 'comanda.conversation'
 
@@ -101,26 +102,31 @@ export default function Chat() {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages, waiting])
 
-  async function send(e) {
-    e.preventDefault()
-    const value = text.trim()
-    if (!value || waiting || !conversationId) return
-    setText('')
+  // Texto, audio y foto comparten el mismo circuito: se envía, el servidor responde y se muestra
+  async function deliver(request) {
+    if (waiting || !conversationId) return
     setError('')
     setWaiting(true)
     try {
-      const res = await api.sendText(conversationId, value)
-      merge(res.messages)
+      merge((await request()).messages)
     } catch (err) {
       if (err.data?.messages) merge(err.data.messages)
       setError(
         err.data?.error === 'ai_not_configured'
           ? 'El asistente todavía no está disponible.'
-          : 'No se pudo enviar el mensaje. Probá de nuevo.',
+          : 'No se pudo enviar. Probá de nuevo.',
       )
     } finally {
       setWaiting(false)
     }
+  }
+
+  function sendText(e) {
+    e.preventDefault()
+    const value = text.trim()
+    if (!value) return
+    setText('')
+    deliver(() => api.sendText(conversationId, value))
   }
 
   return (
@@ -148,29 +154,14 @@ export default function Chat() {
 
       {error && <p className="px-4 pb-1 text-center text-xs text-danger">{error}</p>}
 
-      <form
-        onSubmit={send}
-        className="flex items-center gap-2 border-t border-black/5 bg-white/80 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-xl sm:pb-6"
-      >
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Escribí tu pedido…"
-          autoComplete="off"
-          enterKeyHint="send"
-          className="min-w-0 flex-1 rounded-full bg-bg px-4 py-2.5 text-[15px] outline-none ring-1 ring-black/5 placeholder:text-muted focus:ring-accent/50"
-        />
-        <button
-          type="submit"
-          disabled={!text.trim() || waiting || !conversationId}
-          aria-label="Enviar"
-          className="grid size-10 shrink-0 place-items-center rounded-full bg-accent text-white transition active:scale-95 disabled:opacity-30"
-        >
-          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 19V5M5 12l7-7 7 7" />
-          </svg>
-        </button>
-      </form>
+      <Composer
+        text={text}
+        setText={setText}
+        busy={waiting || !conversationId}
+        onText={sendText}
+        onAudio={(blob, seconds) => deliver(() => api.sendAudio(conversationId, blob, seconds))}
+        onImage={(blob) => deliver(() => api.sendImage(conversationId, blob))}
+      />
     </Phone>
   )
 }
