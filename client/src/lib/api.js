@@ -19,6 +19,7 @@ async function upload(path, form) {
 const audioExt = (type = '') => (type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm')
 
 export const api = {
+  speech: (messageId) => request(`/api/messages/${messageId}/speech`, { method: 'POST' }),
   sendAudio: (conversationId, blob, seconds) => {
     const form = new FormData()
     form.append('audio', blob, `nota.${audioExt(blob.type)}`)

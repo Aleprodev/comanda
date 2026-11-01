@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js'
 import { api } from '../lib/api.js'
 import Bubble from '../components/Bubble.jsx'
 import Composer from '../components/Composer.jsx'
+import { playSpeech } from '../lib/speech.js'
 
 const STORAGE_KEY = 'comanda.conversation'
 
@@ -108,7 +109,9 @@ export default function Chat() {
     setError('')
     setWaiting(true)
     try {
-      merge((await request()).messages)
+      const res = await request()
+      merge(res.messages)
+      return res
     } catch (err) {
       if (err.data?.messages) merge(err.data.messages)
       setError(
@@ -159,7 +162,12 @@ export default function Chat() {
         setText={setText}
         busy={waiting || !conversationId}
         onText={sendText}
-        onAudio={(blob, seconds) => deliver(() => api.sendAudio(conversationId, blob, seconds))}
+        onAudio={async (blob, seconds) => {
+          const res = await deliver(() => api.sendAudio(conversationId, blob, seconds))
+          // Si hablás, el asistente te responde hablando (como en WhatsApp)
+          const reply = res?.messages.findLast((m) => m.role === 'bot' && m.type === 'text')
+          if (reply) playSpeech(reply.id)
+        }}
         onImage={(blob) => deliver(() => api.sendImage(conversationId, blob))}
       />
     </Phone>

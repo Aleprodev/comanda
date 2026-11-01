@@ -124,6 +124,23 @@ async function checkReceipt(conv, analysis) {
   ]
 }
 
+const SPEECH_INSTRUCTIONS =
+  'Hablás en español rioplatense (Argentina), con voz cálida, amable y ágil, como una persona que atiende una pizzería. ' +
+  'Leé los precios y los números con naturalidad, como se dicen en voz alta.'
+
+async function synthesize(text) {
+  const model = process.env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts'
+  const make = (voice) => openai().audio.speech.create({ model, voice, input: text, instructions: SPEECH_INSTRUCTIONS, response_format: 'mp3' })
+  let res
+  try {
+    res = await make(process.env.OPENAI_TTS_VOICE || 'marin')
+  } catch (err) {
+    if (err?.status !== 400) throw err
+    res = await make('coral') // la voz configurada no existe en esta cuenta
+  }
+  return Buffer.from(await res.arrayBuffer())
+}
+
 export function registerMediaRoutes(app, wrap) {
   const guard = (fn) =>
     wrap(async (req, res) => {
@@ -134,6 +151,23 @@ export function registerMediaRoutes(app, wrap) {
         throw err
       }
     })
+
+  // Lee en voz alta un mensaje del asistente. Solo se sintetiza texto que ya está guardado
+  // (nunca texto libre) y el audio queda cacheado: la segunda vez no cuesta nada.
+  app.post(
+    '/api/messages/:id/speech',
+    guard(async (req, res) => {
+      const { data: m } = await db.from('messages').select('*').eq('id', req.params.id).maybeSingle()
+      const readable = m && ['bot', 'staff'].includes(m.role) && ['text', 'status', 'order_summary'].includes(m.type) && m.content
+      if (!readable) return res.status(404).json({ error: 'message_not_readable' })
+      if (m.meta?.speech_url) return res.json({ url: m.meta.speech_url })
+
+      const text = m.content.replace(/[*_#`]/g, '').replace(/\n+/g, '. ').slice(0, 900)
+      const url = await storeFile(m.conversation_id, await synthesize(text), 'audio/mpeg')
+      await db.from('messages').update({ meta: { ...m.meta, speech_url: url } }).eq('id', m.id)
+      res.json({ url })
+    }),
+  )
 
   // Nota de voz: se transcribe y el texto entra al agente como si lo hubiera escrito
   app.post(

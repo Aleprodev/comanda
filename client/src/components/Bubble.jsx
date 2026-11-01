@@ -1,4 +1,5 @@
 import { money } from '../lib/api.js'
+import { playSpeech, stopSpeech, useSpeechStatus } from '../lib/speech.js'
 
 const payLabel = { mercadopago: 'Mercado Pago', transfer: 'Transferencia', cash: 'Efectivo' }
 
@@ -117,7 +118,7 @@ export default function Bubble({ message, paidOrderIds }) {
   }
 
   return (
-    <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}>
       <div
         className={`max-w-[78%] whitespace-pre-wrap rounded-[20px] px-3.5 py-2 text-[15px] leading-snug ${
           mine ? 'rounded-br-md bg-accent text-white' : 'rounded-bl-md bg-white text-ink shadow-sm ring-1 ring-black/5'
@@ -125,6 +126,35 @@ export default function Bubble({ message, paidOrderIds }) {
       >
         {message.content}
       </div>
+      {!mine && message.type === 'text' && message.content && <SpeakButton message={message} />}
     </div>
+  )
+}
+
+// Lee el mensaje en voz alta con la voz de OpenAI (el audio queda guardado: no se paga dos veces)
+function SpeakButton({ message }) {
+  const status = useSpeechStatus(message.id)
+  const busy = status !== 'idle'
+  return (
+    <button
+      type="button"
+      onClick={() => (status === 'playing' ? stopSpeech() : playSpeech(message.id, message.meta?.speech_url))}
+      aria-label={status === 'playing' ? 'Detener la lectura' : 'Escuchar el mensaje'}
+      className={`mb-0.5 grid size-7 shrink-0 place-items-center rounded-full transition active:scale-90 ${
+        busy ? 'bg-accent/15 text-accent' : 'text-muted hover:bg-black/5'
+      }`}
+    >
+      {status === 'loading' ? (
+        <span className="size-3.5 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+      ) : status === 'playing' ? (
+        <svg viewBox="0 0 24 24" className="size-3.5" fill="currentColor">
+          <rect x="6" y="6" width="12" height="12" rx="2" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M11 5L6 9H3v6h3l5 4zM15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13" />
+        </svg>
+      )}
+    </button>
   )
 }
