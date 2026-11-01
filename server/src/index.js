@@ -6,6 +6,7 @@ import { db, addMessage, getConversation } from './db.js'
 import { business, paymentMethods } from './business.js'
 import { mpConfigured, syncPayment, resumeWatchers } from './payments/mercadopago.js'
 import { registerMediaRoutes } from './media.js'
+import { login, requireAdmin } from './auth.js'
 import { runAgent, AiNotConfigured } from './ai/agent.js'
 
 const app = express()
@@ -67,6 +68,10 @@ app.post(
 
 registerMediaRoutes(app, wrap)
 
+// Acceso del dueño al panel
+app.post('/api/login', login)
+app.get('/api/admin/check', requireAdmin, (_req, res) => res.json({ ok: true }))
+
 // Datos públicos del local para la landing
 app.get('/api/business', (_req, res) => res.json({ ...business, paymentMethods: paymentMethods() }))
 
@@ -113,6 +118,7 @@ const statusMessages = {
 // Panel: cambia el estado o el pago de un pedido y avisa al cliente por el chat
 app.patch(
   '/api/orders/:id',
+  requireAdmin,
   wrap(async (req, res) => {
     const { status, payment_status } = req.body ?? {}
     const patch = { updated_at: new Date().toISOString() }
@@ -150,6 +156,7 @@ app.patch(
 // Panel: una persona del local responde y el bot deja de contestar en esa conversación
 app.post(
   '/api/conversations/:id/staff',
+  requireAdmin,
   wrap(async (req, res) => {
     const text = String(req.body?.text ?? '').trim().slice(0, 2000)
     if (!text) return res.status(400).json({ error: 'empty_message' })
@@ -165,6 +172,7 @@ app.post(
 // Panel: devuelve la conversación al asistente
 app.post(
   '/api/conversations/:id/resume',
+  requireAdmin,
   wrap(async (req, res) => {
     const { error } = await db
       .from('conversations')

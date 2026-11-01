@@ -5,6 +5,7 @@ import OrderCard from '../components/panel/OrderCard.jsx'
 import Inbox from '../components/panel/Inbox.jsx'
 import Analytics from '../components/panel/Analytics.jsx'
 import { money } from '../lib/api.js'
+import { clearToken } from '../lib/auth.js'
 
 const columns = [
   { key: 'new', title: 'Nuevos', dot: 'bg-accent' },
@@ -52,6 +53,15 @@ export default function Panel() {
           <Link to="/pedir" className="hidden rounded-full px-3 py-1.5 text-sm text-accent hover:bg-accent/10 sm:block">
             Ver chat del cliente
           </Link>
+          <button
+            onClick={() => {
+              clearToken()
+              location.assign('/login')
+            }}
+            className="rounded-full px-3 py-1.5 text-sm text-muted hover:bg-black/5 hover:text-ink"
+          >
+            Salir
+          </button>
           <button
             onClick={() => setInbox(true)}
             className="relative rounded-full bg-surface px-4 py-1.5 text-sm font-medium shadow-sm ring-1 ring-black/5 transition hover:bg-white active:scale-95"

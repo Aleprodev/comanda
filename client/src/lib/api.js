@@ -1,12 +1,20 @@
 async function request(path, options) {
+  const token = getToken()
   const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
     ...options,
   })
   const data = await res.json().catch(() => ({}))
+  // Sesión vencida o inválida: vuelve al login
+  if (res.status === 401 && token) {
+    clearToken()
+    location.assign('/login')
+  }
   if (!res.ok) throw Object.assign(new Error(data.message || data.error || 'request_failed'), { data })
   return data
 }
+
+import { getToken, clearToken } from './auth.js'
 
 // Los archivos van como multipart: el navegador pone el Content-Type con su boundary
 async function upload(path, form) {
@@ -19,6 +27,8 @@ async function upload(path, form) {
 const audioExt = (type = '') => (type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm')
 
 export const api = {
+  login: (user, password) => request('/api/login', { method: 'POST', body: JSON.stringify({ user, password }) }),
+  checkAdmin: () => request('/api/admin/check'),
   speech: (messageId) => request(`/api/messages/${messageId}/speech`, { method: 'POST' }),
   sendAudio: (conversationId, blob, seconds) => {
     const form = new FormData()
