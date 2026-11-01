@@ -63,6 +63,80 @@ app.post(
   }),
 )
 
+const ORDER_STATUSES = ['new', 'cooking', 'ready', 'delivered']
+
+const statusMessages = {
+  cooking: (o) => `🔥 Tu pedido #${o.number} ya está en cocina.`,
+  ready: (o) =>
+    o.fulfillment === 'delivery'
+      ? `🛵 ¡Tu pedido #${o.number} salió! Llega en unos minutos.`
+      : `✅ Tu pedido #${o.number} está listo para retirar.`,
+  delivered: () => `¡Gracias por elegir ${business.name}! Que lo disfrutes 🍕`,
+}
+
+// Panel: cambia el estado o el pago de un pedido y avisa al cliente por el chat
+app.patch(
+  '/api/orders/:id',
+  wrap(async (req, res) => {
+    const { status, payment_status } = req.body ?? {}
+    const patch = { updated_at: new Date().toISOString() }
+    if (status !== undefined) {
+      if (!ORDER_STATUSES.includes(status)) return res.status(400).json({ error: 'invalid_status' })
+      patch.status = status
+    }
+    if (payment_status !== undefined) {
+      if (!['pending', 'paid'].includes(payment_status)) return res.status(400).json({ error: 'invalid_payment_status' })
+      patch.payment_status = payment_status
+    }
+
+    const { data: before } = await db.from('orders').select('*').eq('id', req.params.id).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'order_not_found' })
+
+    const { data: order, error } = await db.from('orders').update(patch).eq('id', before.id).select().single()
+    if (error) throw new Error(error.message)
+
+    if (status && status !== before.status && statusMessages[status]) {
+      await addMessage(order.conversation_id, { role: 'bot', type: 'status', content: statusMessages[status](order) })
+    }
+    if (payment_status === 'paid' && before.payment_status !== 'paid') {
+      await addMessage(order.conversation_id, {
+        role: 'bot',
+        type: 'status',
+        content: `¡Recibimos el pago de tu pedido #${order.number}! 💳`,
+      })
+    }
+    res.json({ order })
+  }),
+)
+
+// Panel: una persona del local responde y el bot deja de contestar en esa conversación
+app.post(
+  '/api/conversations/:id/staff',
+  wrap(async (req, res) => {
+    const text = String(req.body?.text ?? '').trim().slice(0, 2000)
+    if (!text) return res.status(400).json({ error: 'empty_message' })
+    const conv = await getConversation(req.params.id)
+    if (!conv) return res.status(404).json({ error: 'conversation_not_found' })
+
+    const message = await addMessage(conv.id, { role: 'staff', content: text })
+    await db.from('conversations').update({ mode: 'human', needs_human: false }).eq('id', conv.id)
+    res.json({ message })
+  }),
+)
+
+// Panel: devuelve la conversación al asistente
+app.post(
+  '/api/conversations/:id/resume',
+  wrap(async (req, res) => {
+    const { error } = await db
+      .from('conversations')
+      .update({ mode: 'bot', needs_human: false, human_reason: null })
+      .eq('id', req.params.id)
+    if (error) throw new Error(error.message)
+    res.json({ ok: true })
+  }),
+)
+
 // En producción el mismo servidor entrega el build del cliente
 const dist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../client/dist')
 if (existsSync(dist)) {
